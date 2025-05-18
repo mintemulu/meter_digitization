@@ -117,37 +117,44 @@ function UserDashboard() {
     })
   }
 
-  // Calculate billing based on readings
-  const calculateBilling = (readings) => {
-    if (!readings || readings.length === 0) return { totalConsumption: 0, totalBill: 0 }
+// Calculate billing based on readings
+const calculateBilling = (readings) => {
+  if (!readings || readings.length === 0) return { totalConsumption: 0, totalBill: 0 }
 
-    // Total consumption is the sum of the `value` field from ESP (already raw - pre)
-    const totalConsumption = readings.reduce((sum, r) => sum + r.value, 0)
+  // Calculate consumption as the sum of (value - pre) for each reading
+  const totalConsumption = readings.reduce((sum, r) => {
+    // If pre exists, calculate value - pre, otherwise use value
+    const consumption = r.pre !== undefined ? 
+      parseFloat(r.value || 0) - parseFloat(r.pre || 0) : 
+      parseFloat(r.value || 0);
+    
+    // Only add positive consumption values (to handle potential errors)
+    return sum + (consumption > 0 ? consumption : 0);
+  }, 0);
 
-    // Ethiopian electricity tier rates
-    const tiers = [
-      { limit: 50, rate: 0.27 },
-      { limit: 100, rate: 0.77 },
-      { limit: 200, rate: 1.63 },
-      { limit: 300, rate: 2.0 },
-      { limit: 400, rate: 2.2 },
-      { limit: 500, rate: 2.41 },
-      { limit: Number.POSITIVE_INFINITY, rate: 2.48 },
-    ]
+  // Ethiopian electricity tier rates
+  const tiers = [
+    { limit: 50, rate: 0.27 },
+    { limit: 100, rate: 0.77 },
+    { limit: 200, rate: 1.63 },
+    { limit: 300, rate: 2.0 },
+    { limit: 400, rate: 2.2 },
+    { limit: 500, rate: 2.41 },
+    { limit: Number.POSITIVE_INFINITY, rate: 2.48 },
+  ]
 
-    let remaining = totalConsumption
-    let totalBill = 0
+  let remaining = totalConsumption
+  let totalBill = 0
 
-    for (const tier of tiers) {
-      const units = Math.min(tier.limit, remaining)
-      totalBill += units * tier.rate
-      remaining -= units
-      if (remaining <= 0) break
-    }
-
-    return { totalConsumption, totalBill }
+  for (const tier of tiers) {
+    const units = Math.min(tier.limit, remaining)
+    totalBill += units * tier.rate
+    remaining -= units
+    if (remaining <= 0) break
   }
 
+  return { totalConsumption, totalBill }
+}
   // Calculate billing breakdown by tier
   const calculateBillingBreakdown = (totalConsumption) => {
     const tiers = [

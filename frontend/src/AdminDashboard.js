@@ -369,21 +369,46 @@ function AdminDashboard() {
       user.role.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
-  // Get chart data for consumption
   const getConsumptionChartData = () => {
     if (!monthlyReadings || monthlyReadings.length === 0) return []
-
+  
+    // Sort readings by timestamp
+    const sortedReadings = [...monthlyReadings].sort((a, b) => 
+      new Date(a.timestamp) - new Date(b.timestamp)
+    )
+  
+    // Calculate daily consumption (value - pre)
+    const dailyConsumption = []
+    
+    for (let i = 0; i < sortedReadings.length; i++) {
+      const reading = sortedReadings[i]
+      const date = new Date(reading.timestamp).toLocaleDateString("en-KE", { month: "short", day: "numeric" })
+      
+      // Calculate consumption as value - pre if pre exists
+      const consumption = reading.pre !== undefined ? 
+        Number.parseFloat(reading.value || 0) - Number.parseFloat(reading.pre || 0) : 
+        Number.parseFloat(reading.value || 0)
+      
+      // Only add positive consumption values
+      if (consumption > 0) {
+        dailyConsumption.push({
+          date,
+          value: consumption,
+          timestamp: reading.timestamp
+        })
+      }
+    }
+  
     // Group by day
     const groupedData = {}
-    monthlyReadings.forEach((reading) => {
-      const date = new Date(reading.timestamp).toLocaleDateString("en-KE", { month: "short", day: "numeric" })
-      if (!groupedData[date]) {
-        groupedData[date] = { date, value: 0, count: 0 }
+    dailyConsumption.forEach((item) => {
+      if (!groupedData[item.date]) {
+        groupedData[item.date] = { date: item.date, value: 0, count: 0 }
       }
-      groupedData[date].value += Number.parseFloat(reading.value || 0)
-      groupedData[date].count += 1
+      groupedData[item.date].value += item.value
+      groupedData[item.date].count += 1
     })
-
+  
     // Convert to array and calculate average
     return Object.values(groupedData).map((item) => ({
       date: item.date,
@@ -391,7 +416,6 @@ function AdminDashboard() {
       average: Number.parseFloat((item.value / item.count).toFixed(2)),
     }))
   }
-
   return (
     <div className="admin-dashboard">
       <div className="dashboard-header">
